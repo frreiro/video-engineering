@@ -131,6 +131,7 @@ Exemplo no `libx264`:
 ### Validação
 
 No teste realizado, conseguimos ver na prático comparando o arquivo scene-cut-detection/gop_frames.csv e o scene-cut-detection/scene_cut_disable_frames.csv
+
 No primeiro arquivo, que foi encodado com o scene cut detection ativado, vemos um I-Frame na linha 1 e outro logo na linha 5, ou seja, houve um corte de cena nesse momento, onde a difereça deveria ter sido de 120.
 
 No segundo arquivo, com o scene-cut-detection desativado, podemos avaliar que o GOP foi fixado em 120, conforme requisitado. Ou seja, temos um I-Frame na linha 1, e outro somente na linha 121.
