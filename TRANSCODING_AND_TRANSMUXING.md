@@ -1,127 +1,160 @@
-# Encoding e Bitrate
+# Transcoding e Transmuxing
 
-## Objetivo
+## Conceitos
 
-Resumo do estudo realizado sobre bitrate, tipos de controle de bitrate e fluxo de encoding de vídeo utilizando FFmpeg.
+### Transcoding
+
+Transcoding é o processo de decodificar um arquivo de mídia e codificá-lo novamente, normalmente alterando alguma característica do vídeo ou áudio.
+
+Exemplos de alterações que exigem transcode:
+
+* Mudança de codec (ProRes → H.264)
+* Mudança de resolução (1080p → 720p)
+* Mudança de bitrate
+* Mudança de FPS
+* Aplicação de filtros (crop, watermark, etc.)
+
+Fluxo:
+
+```text
+Arquivo Original
+      ↓
+ Decodificação
+      ↓
+ Processamento
+      ↓
+ Codificação
+      ↓
+ Arquivo Final
+```
+
+Exemplo FFmpeg:
+
+```bash
+ffmpeg -i video.mov -c:v libx264 output.mp4
+```
+
+### Características do Transcode
+
+* Consome CPU/GPU
+* Processo mais lento
+* Pode gerar perda de qualidade
+* Permite alterar características do vídeo
 
 ---
 
-# O que é Bitrate
+## Transmuxing (Remuxing)
 
-Bitrate é a quantidade de bits processados por segundo em um vídeo.
-
-Quanto maior o bitrate:
-
-* Maior tende a ser a qualidade do vídeo
-* Maior tende a ser o tamanho do arquivo
-
----
-
-# CBR (Constant Bitrate)
-
-No modo CBR, o bitrate permanece constante independentemente da complexidade da cena.
+Transmuxing é a troca do container sem alterar os codecs dos streams internos.
 
 Exemplo:
 
-* Segundo 1 → 4 Mbps
-* Segundo 2 → 4 Mbps
-* Segundo 3 → 4 Mbps
+```text
+video.mkv
+├── H.264
+└── AAC
 
-## Vantagens
+      ↓
 
-* Mais previsível
-* Melhor para transmissões ao vivo
-
-## Desvantagens
-
-* Pode desperdiçar bitrate em cenas simples
-* Eficiência menor
-
----
-
-# VBR (Variable Bitrate)
-
-No modo VBR, o bitrate varia dinamicamente de acordo com a complexidade do vídeo.
-
-Cenas mais complexas recebem mais bitrate e cenas simples recebem menos.
-
-## Vantagens
-
-* Melhor eficiência de armazenamento
-* Melhor qualidade percebida
-
-## Desvantagens
-
-* Menor previsibilidade
-* Pode ter maior latência
-
----
-
-# Fluxo de Encoding
-
-O fluxo básico apresentado foi:
-
-1. Arquivo original
-2. Demux
-3. Decoder
-4. Frames brutos
-5. Encoder
-6. Mux
-7. Novo arquivo
-
----
-
-# FFmpeg
-
-O FFmpeg foi apresentado como ferramenta responsável por:
-
-* Detectar codecs
-* Fazer demux
-* Fazer decode
-* Fazer encode
-* Fazer mux
-
-Exemplo citado:
-
-```bash
-ffmpeg -i input.mp4 -c:v libx264 output.mp4
+video.mp4
+├── H.264
+└── AAC
 ```
 
-Onde:
+Os codecs permanecem exatamente os mesmos.
 
-* `-i` define o arquivo de entrada
-* `-c:v` define o codec de vídeo
-* `libx264` é o encoder utilizado
+Exemplo FFmpeg:
+
+```bash
+ffmpeg -i video.mkv -c copy video.mp4
+```
+
+ou
+
+```bash
+ffmpeg -i video.mkv -c:v copy -c:a copy video.mp4
+```
+
+Fluxo:
+
+```text
+Arquivo Original
+      ↓
+ Cópia dos Streams
+      ↓
+ Novo Container
+```
+
+### Características do Transmuxing
+
+* Não utiliza codificação
+* Uso mínimo de CPU
+* Muito rápido
+* Sem perda de qualidade
+* Mantém bitrate original
 
 ---
 
-# Presets
+## Comparação
 
-Presets são configurações pré-definidas do encoder.
-
-Eles influenciam:
-
-* Velocidade do encode
-* Taxa de compressão
-* Uso de CPU
-* Tamanho do arquivo final
-
-Relação geral apresentada:
-
-* Mais compressão → menor bitrate
-* Mais velocidade → arquivos maiores
-* Mais qualidade → maior processamento
+| Característica     | Transcode      | Transmux   |
+| ------------------ | -------------- | ---------- |
+| Muda codec         | Sim            | Não        |
+| Muda container     | Pode mudar     | Sim        |
+| Re-encoda          | Sim            | Não        |
+| Consome CPU        | Alto           | Baixo      |
+| Perda de qualidade | Possível       | Não        |
+| Velocidade         | Baixa/Moderada | Muito alta |
 
 ---
 
-# Conceitos citados
+## Verificando os Codecs
 
-* Codec
-* Decode
-* Encode
-* Mux
-* Demux
-* Frames
-* Compressão
-* Bitrate
-* Presets
+Utilizar FFprobe:
+
+```bash
+ffprobe -v error \
+-show_entries stream=codec_name \
+-of default=noprint_wrappers=1 \
+video.mp4
+```
+
+Exemplo de saída:
+
+```text
+codec_name=h264
+codec_name=aac
+```
+
+---
+
+## Prática Realizada
+
+### Transcode
+
+Conversão de codec:
+
+```bash
+ffmpeg -i video_prores.mov \
+-c:v libx264 \
+-c:a aac \
+output.mp4
+```
+
+### Transmux
+
+Troca apenas do container:
+
+```bash
+ffmpeg -i video.mkv \
+-c copy \
+output.mp4
+```
+
+---
+
+## Conclusão
+
+* **Transcode** altera o conteúdo do vídeo e exige recodificação.
+* **Transmux** altera apenas a embalagem (container), mantendo o conteúdo intacto.
+* Em pipelines de streaming, sempre que possível, utiliza-se **transmuxing** devido ao menor custo computacional.
