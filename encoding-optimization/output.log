@@ -1,0 +1,22 @@
+Iniciando encoding normal
+Finalizado encoding normal
+Iniciando encoding zero latency
+Finalizado encoding zero latency
+Iniciando encoding GOP 10
+Finalizado encoding GOP 10
+Iniciando encoding GOP 1
+Finalizado encoding GOP 1
+total 61M
+drwxrwxr-x  2 lucas lucas 4,0K jun  1 18:06 .
+drwxrwxr-x 13 lucas lucas 4,0K jun  1 17:32 ..
+-rwxrwxr-x  1 lucas lucas 1010 jun  1 18:04 ffmpeg.sh
+-rwxrwxr-x  1 lucas lucas  256 jun  1 17:36 ffprobe.sh
+-rw-rw-r--  1 lucas lucas  12K jun  1 18:06 output_gop10.log
+-rw-rw-r--  1 lucas lucas  14M jun  1 18:06 output_gop10.mp4
+-rw-rw-r--  1 lucas lucas  11K jun  1 18:06 output_gop1.log
+-rw-rw-r--  1 lucas lucas  17M jun  1 18:06 output_gop1.mp4
+-rw-rw-r--  1 lucas lucas  222 jun  1 18:06 output.log
+-rw-rw-r--  1 lucas lucas 9,7K jun  1 18:05 output_normal.log
+-rw-rw-r--  1 lucas lucas  14M jun  1 18:05 output_normal.mp4
+-rw-rw-r--  1 lucas lucas  13K jun  1 18:05 output_zerolatency.log
+-rw-rw-r--  1 lucas lucas  18M jun  1 18:05 output_zerolatency.mp4
