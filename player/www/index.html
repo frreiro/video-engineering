@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Low Latency Player Lab</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f7f9;
+        --panel: #ffffff;
+        --text: #15171a;
+        --muted: #69707a;
+        --line: #d8dde4;
+        --accent: #006adc;
+        --ok: #087f5b;
+        --warn: #b7791f;
+        --bad: #c92a2a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100% - 32px));
+        margin: 24px auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        line-height: 1.15;
+      }
+
+      .subtitle {
+        margin: 4px 0 0;
+        color: var(--muted);
+      }
+
+      .controls,
+      .stats,
+      .log {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+
+      .controls {
+        padding: 14px;
+        display: grid;
+        grid-template-columns: 1fr auto auto auto auto;
+        gap: 10px;
+        align-items: end;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      input,
+      button {
+        min-height: 40px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        font: inherit;
+      }
+
+      input {
+        width: 100%;
+        padding: 0 11px;
+        color: var(--text);
+        background: #fff;
+      }
+
+      button {
+        padding: 0 14px;
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #fff;
+        color: var(--text);
+        border-color: var(--line);
+      }
+
+      video {
+        width: 100%;
+        max-height: calc(100vh - 300px);
+        min-height: 260px;
+        background: #050608;
+        border-radius: 8px;
+        display: block;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(130px, 1fr));
+        overflow: hidden;
+      }
+
+      .stat {
+        padding: 12px 14px;
+        border-right: 1px solid var(--line);
+      }
+
+      .stat:last-child {
+        border-right: 0;
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .value {
+        margin-top: 4px;
+        font-size: 21px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .ok {
+        color: var(--ok);
+      }
+
+      .warn {
+        color: var(--warn);
+      }
+
+      .bad {
+        color: var(--bad);
+      }
+
+      .log {
+        min-height: 120px;
+        max-height: 220px;
+        overflow: auto;
+        padding: 12px 14px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      @media (max-width: 780px) {
+        main {
+          width: min(100% - 20px, 1180px);
+          margin: 12px auto;
+        }
+
+        .controls {
+          grid-template-columns: 1fr;
+        }
+
+        .stats {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .stat {
+          border-bottom: 1px solid var(--line);
+        }
+
+        video {
+          min-height: 210px;
+          max-height: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Low Latency Player Lab</h1>
+          <p class="subtitle">HLS, LL-HLS e DASH/CMAF com métricas ao vivo.</p>
+        </div>
+      </header>
+
+      <section class="controls" aria-label="Controles do player">
+        <label>
+          Manifest URL
+          <input id="manifest" value="/media/manifests/master.m3u8" spellcheck="false">
+        </label>
+        <button id="start-stream" class="secondary">Iniciar stream</button>
+        <button id="stop-stream" class="secondary">Parar stream</button>
+        <button id="load">Carregar</button>
+        <button id="reload" class="secondary">Recarregar</button>
+      </section>
+
+      <video id="video" controls autoplay muted playsinline></video>
+
+      <section class="stats" aria-label="Métricas">
+        <div class="stat">
+          <div class="label">Estado</div>
+          <div id="state" class="value">idle</div>
+        </div>
+        <div class="stat">
+          <div class="label">Live edge delay</div>
+          <div id="latency" class="value">--</div>
+        </div>
+        <div class="stat">
+          <div class="label">Buffer</div>
+          <div id="buffer" class="value">--</div>
+        </div>
+        <div class="stat">
+          <div class="label">Stalls</div>
+          <div id="stalls" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="label">Playback rate</div>
+          <div id="rate" class="value">1.00x</div>
+        </div>
+        <div class="stat">
+          <div class="label">Script</div>
+          <div id="script-state" class="value">--</div>
+        </div>
+      </section>
+
+      <section id="log" class="log" aria-live="polite"></section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js"></script>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
+    <script>
+      const video = document.getElementById("video");
+      const manifestInput = document.getElementById("manifest");
+      const stateEl = document.getElementById("state");
+      const latencyEl = document.getElementById("latency");
+      const bufferEl = document.getElementById("buffer");
+      const stallsEl = document.getElementById("stalls");
+      const rateEl = document.getElementById("rate");
+      const scriptStateEl = document.getElementById("script-state");
+      const logEl = document.getElementById("log");
+      const controlApi = "http://127.0.0.1:8090";
+
+      let hls = null;
+      let dash = null;
+      let stalls = 0;
+      let statsTimer = null;
+
+      function log(message) {
+        const time = new Date().toLocaleTimeString();
+        logEl.textContent = `[${time}] ${message}\n${logEl.textContent}`.slice(0, 5000);
+      }
+
+      function setState(value, status = "") {
+        stateEl.textContent = value;
+        stateEl.className = `value ${status}`;
+      }
+
+      function formatSeconds(value) {
+        return Number.isFinite(value) ? `${value.toFixed(2)}s` : "--";
+      }
+
+      function setScriptState(value, status = "") {
+        scriptStateEl.textContent = value;
+        scriptStateEl.className = `value ${status}`;
+      }
+
+      async function streamAction(action) {
+        try {
+          const response = await fetch(`${controlApi}/api/stream/${action}`, { method: "POST" });
+          const data = await response.json();
+          setScriptState(data.running ? `on #${data.pid}` : "off", data.running ? "ok" : "");
+          log(`Script ${action}: ${data.running ? `rodando PID ${data.pid}` : "parado"}`);
+
+          if (action === "start") {
+            setTimeout(loadManifest, 2500);
+          }
+        } catch (error) {
+          setScriptState("api off", "bad");
+          log(`Servidor de controle indisponivel: ${error.message}`);
+        }
+      }
+
+      async function refreshStreamStatus() {
+        try {
+          const response = await fetch(`${controlApi}/api/stream/status`);
+          const data = await response.json();
+          setScriptState(data.running ? `on #${data.pid}` : "off", data.running ? "ok" : "");
+        } catch (_error) {
+          setScriptState("api off", "bad");
+        }
+      }
+
+      function getBufferedAhead() {
+        for (let i = 0; i < video.buffered.length; i += 1) {
+          const start = video.buffered.start(i);
+          const end = video.buffered.end(i);
+          if (video.currentTime >= start && video.currentTime <= end) {
+            return end - video.currentTime;
+          }
+        }
+
+        return 0;
+      }
+
+      function updateStats() {
+        const bufferedAhead = getBufferedAhead();
+        bufferEl.textContent = formatSeconds(bufferedAhead);
+        rateEl.textContent = `${video.playbackRate.toFixed(2)}x`;
+
+        let latency = NaN;
+        if (hls && Number.isFinite(hls.latency)) {
+          latency = hls.latency;
+        } else if (dash && dash.isReady()) {
+          latency = dash.getCurrentLiveLatency();
+        } else if (video.seekable.length) {
+          latency = video.seekable.end(video.seekable.length - 1) - video.currentTime;
+        }
+
+        latencyEl.textContent = formatSeconds(latency);
+        latencyEl.className = `value ${Number.isFinite(latency) && latency <= 3 ? "ok" : "warn"}`;
+      }
+
+      function destroyPlayers() {
+        if (statsTimer) {
+          clearInterval(statsTimer);
+          statsTimer = null;
+        }
+
+        if (hls) {
+          hls.destroy();
+          hls = null;
+        }
+
+        if (dash) {
+          dash.reset();
+          dash = null;
+        }
+
+        video.removeAttribute("src");
+        video.load();
+      }
+
+      async function startPlayback() {
+        try {
+          await video.play();
+        } catch (error) {
+          log(`Autoplay bloqueado: ${error.message}`);
+        }
+      }
+
+      function loadManifest() {
+        const url = manifestInput.value.trim();
+        if (!url) return;
+
+        destroyPlayers();
+        stalls = 0;
+        stallsEl.textContent = "0";
+        setState("loading", "warn");
+        log(`Carregando ${url}`);
+
+        if (url.endsWith(".mpd") && typeof dashjs !== "undefined") {
+          dash = dashjs.MediaPlayer().create();
+          dash.updateSettings({
+            streaming: {
+              delay: { liveDelay: 2 },
+              liveCatchup: {
+                enabled: true,
+                maxDrift: 0.8,
+                playbackRate: { min: -0.05, max: 0.08 }
+              },
+              buffer: {
+                fastSwitchEnabled: true,
+                stableBufferTime: 2,
+                bufferTimeAtTopQuality: 3,
+                bufferToKeep: 4
+              }
+            }
+          });
+          dash.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, () => setState("playing", "ok"));
+          dash.on(dashjs.MediaPlayer.events.ERROR, (event) => log(`DASH erro: ${JSON.stringify(event.error || event)}`));
+          dash.initialize(video, url, true);
+        } else if (typeof Hls !== "undefined" && Hls.isSupported()) {
+          hls = new Hls({
+            lowLatencyMode: true,
+            backBufferLength: 6,
+            liveSyncDuration: 1.5,
+            liveMaxLatencyDuration: 4,
+            maxBufferLength: 4,
+            maxMaxBufferLength: 8,
+            maxBufferHole: 0.1,
+            nudgeOffset: 0.05,
+            nudgeMaxRetry: 5,
+            enableWorker: true
+          });
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => log("hls.js anexado ao video"));
+          hls.on(Hls.Events.MANIFEST_PARSED, () => startPlayback());
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            log(`HLS ${data.type}: ${data.details}`);
+            if (data.fatal) {
+              setState("fatal", "bad");
+            }
+          });
+          hls.loadSource(url);
+          hls.attachMedia(video);
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = url;
+          startPlayback();
+        } else {
+          setState("unsupported", "bad");
+          log("Formato nao suportado neste navegador ou biblioteca CDN indisponivel.");
+        }
+
+        statsTimer = setInterval(updateStats, 500);
+      }
+
+      document.getElementById("load").addEventListener("click", loadManifest);
+      document.getElementById("reload").addEventListener("click", loadManifest);
+      document.getElementById("start-stream").addEventListener("click", () => streamAction("start"));
+      document.getElementById("stop-stream").addEventListener("click", () => streamAction("stop"));
+      manifestInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") loadManifest();
+      });
+
+      video.addEventListener("playing", () => setState("playing", "ok"));
+      video.addEventListener("waiting", () => {
+        stalls += 1;
+        stallsEl.textContent = String(stalls);
+        setState("waiting", "warn");
+      });
+      video.addEventListener("error", () => setState("error", "bad"));
+      video.addEventListener("ratechange", updateStats);
+      video.addEventListener("loadedmetadata", startPlayback);
+
+      // refreshStreamStatus();
+      // setInterval(refreshStreamStatus, 1000);
+      loadManifest();
+    </script>
+  </body>
+</html>

@@ -1,6 +1,0 @@
-I0601 21:32:39.121493  187829 demuxer.cc:94] Demuxer::Run() on file 'pipes/video.ts'.
-I0601 21:32:39.121827  187829 demuxer.cc:159] Initialize Demuxer for file 'pipes/video.ts'.
-I0601 21:32:39.121467  187828 demuxer.cc:94] Demuxer::Run() on file 'pipes/audio.ts'.
-I0601 21:32:39.121890  187828 demuxer.cc:159] Initialize Demuxer for file 'pipes/audio.ts'.
-E0601 21:32:49.442291  187829 local_file.cc:83] Cannot get file size, error: generic:95
-E0601 21:32:49.442763  187828 local_file.cc:83] Cannot get file size, error: generic:95

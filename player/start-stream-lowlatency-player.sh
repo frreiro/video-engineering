@@ -2,15 +2,17 @@
 
 set -euo pipefail
 
-BASE_DIR="$(pwd)/lab"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$SCRIPT_DIR/lab"
+MEDIA_DIR="$SCRIPT_DIR/www/media"
 
 PIPES_DIR="$BASE_DIR/pipes"
-HLS_DIR="$BASE_DIR/hls"
-DASH_DIR="$BASE_DIR/dash"
+HLS_DIR="$MEDIA_DIR/hls"
+DASH_DIR="$MEDIA_DIR/dash"
 LOG_DIR="$BASE_DIR/logs"
 
 SRT_PORT=9999
-CHUNK_MAX_AGE_SECONDS=20
+CHUNK_MAX_AGE_SECONDS=10
 PRESERVED_SEGMENTS_OUTSIDE_LIVE_WINDOW=1
 
 mkdir -p "$PIPES_DIR"
@@ -24,9 +26,8 @@ cleanup() {
 
     jobs -p | xargs -r kill 2>/dev/null || true
 
-    rm -f \
-        "$PIPES_DIR/video.ts" \
-        "$PIPES_DIR/audio.ts"
+    rm -f "$PIPES_DIR/video.ts" "$PIPES_DIR/audio.ts"
+    rm -rf "$HLS_DIR" "$DASH_DIR"
 
     echo "Limpeza concluída."
 }
@@ -42,7 +43,7 @@ mkfifo "$PIPES_DIR/audio.ts"
 echo ""
 echo "======================================="
 echo "OBS SRT URL"
-echo "srt://SEU_IP:${SRT_PORT}?mode=caller"
+echo "srt://localhost:${SRT_PORT}?mode=caller"
 echo "======================================="
 echo ""
 
@@ -54,19 +55,21 @@ echo ""
 cd "$BASE_DIR"
 
 packager \
-"in=pipes/audio.ts,stream=audio,init_segment=hls/audio-init.mp4,segment_template=hls/audio-\$Number\$.m4s,playlist_name=audio.m3u8,hls_group_id=audio,hls_name=AAC" \
-"in=pipes/video.ts,stream=video,init_segment=hls/video-init.mp4,segment_template=hls/video-\$Number\$.m4s,playlist_name=video.m3u8,hls_name=720p" \
---hls_master_playlist_output hls/master.m3u8 \
+"in=pipes/audio.ts,stream=audio,init_segment=${HLS_DIR}/audio-init.mp4,segment_template=${HLS_DIR}/audio-\$Number\$.m4s,playlist_name=audio.m3u8,hls_group_id=audio,hls_name=AAC" \
+"in=pipes/video.ts,stream=video,init_segment=${HLS_DIR}/video-init.mp4,segment_template=${HLS_DIR}/video-\$Number\$.m4s,playlist_name=video.m3u8,hls_name=720p" \
+--hls_master_playlist_output "$HLS_DIR/master.m3u8" \
 --hls_playlist_type LIVE \
---mpd_output dash/manifest.mpd \
---minimum_update_period 5 \
+--mpd_output "$DASH_DIR/manifest.mpd" \
+--minimum_update_period 1 \
+--segment_duration 2 \
+--fragment_duration 0.5 \
 --time_shift_buffer_depth "$CHUNK_MAX_AGE_SECONDS" \
 --preserved_segments_outside_live_window "$PRESERVED_SEGMENTS_OUTSIDE_LIVE_WINDOW" \
 > logs/shaka.log 2>&1
 
 ) &
 
-sleep 3
+sleep 1
 
 #################################################
 # FFMPEG
@@ -74,7 +77,7 @@ sleep 3
 
 ffmpeg -y \
     -loglevel info \
-    -i "srt://0.0.0.0:${SRT_PORT}?mode=listener" \
+    -i "srt://0.0.0.0:${SRT_PORT}?mode=listener&latency=10" \
     -map 0:v:0 \
     -c:v copy \
     -f mpegts \
